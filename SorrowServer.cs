@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Management.Instrumentation;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 using OTAPI;
@@ -37,9 +35,9 @@ namespace SorrowServer
         {
             Commands.ChatCommands.Add(new Command("sorrow.npcblocker", NpcBlockerCommand, "npcblocker", "nb"));
             
-            TShockAPI.GetDataHandlers.ChestOpen.Register(ChestOpen);
+            GetDataHandlers.ChestOpen.Register(ChestOpen);
             ServerApi.Hooks.NetGetData.Register(this, OnGetData, -10);
-            OTAPI.Hooks.Npc.PostUpdate += NpcPostUpdate;
+            Hooks.Npc.PostUpdate += NpcPostUpdate;
             ServerApi.Hooks.NpcKilled.Register(this, NpcKilled);
             ServerApi.Hooks.NetGreetPlayer.Register(this, GreetPlayer);
 
@@ -53,121 +51,176 @@ namespace SorrowServer
         {
             if (disposing)
             {
-                TShockAPI.GetDataHandlers.ChestOpen.UnRegister(ChestOpen);
+                GetDataHandlers.ChestOpen.UnRegister(ChestOpen);
                 ServerApi.Hooks.NetGetData.Deregister(this, OnGetData);
-                OTAPI.Hooks.Npc.PostUpdate -= NpcPostUpdate;
+                Hooks.Npc.PostUpdate -= NpcPostUpdate;
+                ServerApi.Hooks.NpcKilled.Deregister(this, NpcKilled);
                 ServerApi.Hooks.NetGreetPlayer.Deregister(this, GreetPlayer);
             }
             base.Dispose(disposing);
         }
 
-        private void NpcKilled(NpcKilledEventArgs npc)
+        private void NpcKilled(NpcKilledEventArgs args)
         {
 
             int relic = 0;
-            switch (npc.npc.type)
+            int extra = 0;
+            switch (args.npc.type)
             {
                 case NPCID.KingSlime:
                     relic = 4929;
+                    extra = 4797;
                     break;
                 case NPCID.EyeofCthulhu:
                     relic = 4924;
+                    extra = 4798;
                     break;
-                case NPCID.EaterofWorldsHead:
                 case NPCID.EaterofWorldsTail:
-                    relic = 4925;
+                    if (args.npc.boss)
+                    {
+                        relic = 4925;
+                        extra = 4799;
+                    }
+
                     break;
                 case NPCID.BrainofCthulhu:
                     relic = 4926;
+                    extra = 4800;
                     break;
                 case NPCID.QueenBee:
                     relic = 4928;
+                    extra = 4802;
                     break;
                 case NPCID.SkeletronHead:
                     relic = 4927;
+                    extra = 4801;
                     break;
                 case NPCID.WallofFlesh:
                     relic = 4930;
+                    extra = 4795;
                     break;
                 case NPCID.QueenSlimeBoss:
                     relic = 4950;
+                    extra = 4960;
                     break;
-                case NPCID.TheDestroyer:
+                case NPCID.TheDestroyer: //Destroyer is somehow the special one
                     relic = 4932;
-                    break;
+                    extra = 4803;
+                    
+
+                    float num1 = 1E+08f;
+                    Vector2 center = Main.player[args.npc.target].Center;
+                    Vector2 position = args.npc.position;
+                    for (int index = 0; index < 200; ++index)
+                    {
+                        if (Main.npc[index].active && (Main.npc[index].type == 134 || Main.npc[index].type == 135 || Main.npc[index].type == 136))
+                        {
+                            float num2 = Math.Abs(Main.npc[index].Center.X - center.X) + Math.Abs(Main.npc[index].Center.Y - center.Y);
+                            if (num2 < num1)
+                            {
+                                num1 = num2;
+                                position = Main.npc[index].position;
+                            }
+                        }
+                    }
+                    
+                    Item.NewItem(position,  Vector2.Zero, relic, 1);
+                    Item.NewItem(position,  Vector2.Zero, extra, 1);
+                    return;
                 case NPCID.Spazmatism:
                 case NPCID.Retinazer:
-                    relic = 4931;
+                    if (args.npc.boss)
+                    {
+                        relic = 4931;
+                        extra = 4804;
+                    }
                     break;
                 case NPCID.SkeletronPrime:
                     relic = 4933;
+                    extra = 4805;
                     break;
                 case NPCID.Plantera:
                     relic = 4934;
+                    extra = 4806;
                     break;
                 case NPCID.HallowBoss:
                     relic = 4949;
+                    extra = 4811;
                     break;
                 case NPCID.Golem:
                     relic = 4935;
+                    extra = 4807;
                     break;
                 case NPCID.DukeFishron:
                     relic = 4936;
+                    extra = 4808;
                     break;
                 case NPCID.CultistBoss:
                     relic = 4937;
+                    extra = 4809;
                     break;
                 case NPCID.MoonLordCore:
                     relic = 4938;
+                    extra = 4810;
                     break;
                 case NPCID.DD2DarkMageT1:
                 case NPCID.DD2DarkMageT3:
                     relic = 4946;
+                    extra = 4796;
                     break;
                 case NPCID.DD2OgreT2:
                 case NPCID.DD2OgreT3:
                     relic = 4947;
+                    extra = 4816;
                     break;
                 case NPCID.DD2Betsy:
                     relic = 4948;
+                    extra = 4817;
                     break;
                 case NPCID.MartianSaucerCore:
                     relic = 4939;
+                    extra = 4815;
                     break;
                 case NPCID.MourningWood:
                     relic = 4941;
+                    extra = 4793;
                     break;
                 case NPCID.Pumpking:
                     relic = 4942;
+                    extra = 4812;
                     break;
                 case NPCID.Everscream:
                     relic = 4944;
+                    extra = 4813;
                     break;
                 case NPCID.IceQueen:
                     relic = 4943;
+                    extra = 4814;
                     break;
                 case NPCID.SantaNK1:
                     relic = 4945;
+                    extra = 4794;
                     break;
-                case NPCID.PirateShipCannon:
+                case NPCID.PirateShip:
                     relic = 4940;
+                    extra = 4792;
                     break;
             }
-
-            Item.NewItem(npc.npc.position, Vector2.One, relic, 1);
-
+            
+            Item.NewItem(args.npc.position + args.npc.Size / 2,  Vector2.Zero, relic, 1);
+            Item.NewItem(args.npc.position + args.npc.Size / 2,  Vector2.Zero, extra, 1);
         }
 
         private async void GreetPlayer(GreetPlayerEventArgs args)
         {
             var plr = TShock.Players[args.Who];
 
-            await Task.Delay(500).ContinueWith(l =>
+            await Task.Delay(400).ContinueWith(l =>
             {
-                Projectile.NewProjectile(plr.TPlayer.position.X, plr.TPlayer.position.Y - 32, 0f, -8f, PluginRandom.Next(168, 170),
+                Projectile.NewProjectile(plr.TPlayer.position.X + 16f, plr.TPlayer.position.Y - 32, 0f, -8f, PluginRandom.Next(167, 171),
                     0, 0);
-                plr.SendData(PacketTypes.CreateCombatTextExtended, "Witamy na serwerze! ;)",
-                    (int) Colors.RarityPurple.PackedValue, plr.X, plr.Y);
+                plr.SendData(PacketTypes.CreateCombatTextExtended, "Witaj przyjacielu!",
+                    (int) Color.White.PackedValue, plr.X + 16f, plr.Y + 24f);
             });
         }
 
