@@ -217,10 +217,10 @@ namespace SorrowServer
                     break;
             }
 
-            if (PluginRandom.Next(0, 3) == 0)
+            if (PluginRandom.Next(1, 10) == 1)
                 Item.NewItem(args.npc.position + args.npc.Size / 2, args.npc.Size / 3, relic, 1);
             
-            if (PluginRandom.Next(0, 6) == 0)
+            if (PluginRandom.Next(1, 20) == 1)
                 Item.NewItem(args.npc.position + args.npc.Size / 2,  args.npc.Size / 3, extra, 1);
         }
 
