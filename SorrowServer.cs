@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
@@ -46,7 +47,9 @@ namespace SorrowServer
 
             PluginRandom = new Random();
         }
-        
+
+
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -60,8 +63,12 @@ namespace SorrowServer
             base.Dispose(disposing);
         }
 
+
         private void NpcKilled(NpcKilledEventArgs args)
         {
+
+            if (!Main.expertMode)
+                return;
 
             int relic = 0;
             int extra = 0;
@@ -103,7 +110,7 @@ namespace SorrowServer
                     relic = 4950;
                     extra = 4960;
                     break;
-                case NPCID.TheDestroyer: //Destroyer is somehow the special one
+                case NPCID.TheDestroyer: //Destroyer is the tricky one
                     relic = 4932;
                     extra = 4803;
                     
@@ -124,8 +131,11 @@ namespace SorrowServer
                         }
                     }
                     
-                    Item.NewItem(position,  Vector2.Zero, relic, 1);
-                    Item.NewItem(position,  Vector2.Zero, extra, 1);
+                    if (PluginRandom.Next(0, 3) == 0)
+                        Item.NewItem(position,  args.npc.Size, relic, 1);
+                    
+                    if (PluginRandom.Next(0, 6) == 0)
+                        Item.NewItem(position,  args.npc.Size / 3, extra, 1);
                     return;
                 case NPCID.Spazmatism:
                 case NPCID.Retinazer:
@@ -206,45 +216,57 @@ namespace SorrowServer
                     extra = 4792;
                     break;
             }
+
+            if (PluginRandom.Next(0, 3) == 0)
+                Item.NewItem(args.npc.position + args.npc.Size / 2, args.npc.Size / 3, relic, 1);
             
-            Item.NewItem(args.npc.position + args.npc.Size / 2,  Vector2.Zero, relic, 1);
-            Item.NewItem(args.npc.position + args.npc.Size / 2,  Vector2.Zero, extra, 1);
+            if (PluginRandom.Next(0, 6) == 0)
+                Item.NewItem(args.npc.position + args.npc.Size / 2,  args.npc.Size / 3, extra, 1);
         }
 
         private async void GreetPlayer(GreetPlayerEventArgs args)
         {
             var plr = TShock.Players[args.Who];
 
-            await Task.Delay(400).ContinueWith(l =>
+            await Task.Delay((plr.RPPending + 1) * 1000).ContinueWith(l =>
             {
-                Projectile.NewProjectile(plr.TPlayer.position.X + 16f, plr.TPlayer.position.Y - 32, 0f, -8f, PluginRandom.Next(167, 171),
-                    0, 0);
-                plr.SendData(PacketTypes.CreateCombatTextExtended, "Witaj przyjacielu!",
-                    (int) Color.White.PackedValue, plr.X + 16f, plr.Y + 24f);
+                if (plr.ConnectionAlive)
+                {
+                    Projectile.NewProjectile(plr.TPlayer.position.X + 16f, plr.TPlayer.position.Y - 32, 0f, -6f,
+                        PluginRandom.Next(167, 171),
+                        0, 0);
+                    plr.SendData(PacketTypes.CreateCombatTextExtended, "Witaj przyjacielu!",
+                        (int) Color.White.PackedValue, plr.X + 16f, plr.Y + 24f);
+                }
             });
         }
 
 
         private void NpcPostUpdate(NPC npc, int i)
         {
-            if (npc == null || i > Main.npc.Length - 1 || i < 0  || !npc.active)
+            if (npc == null || i > Main.npc.Length - 1 || i < 0 || !npc.active)
                 return;
+            
             
             if (config.BlockedNPCs.Contains(npc.type))
             {
                 Main.npc[i] = new NPC();
                 NetMessage.SendData((int)PacketTypes.NpcUpdate, -1, -1, NetworkText.Empty, i);
             }
+            
         }
 
 
         private void NpcBlockerCommand(CommandArgs args)
         {
-            if (args.Parameters.Count > 1)
+            if (args.Parameters.Count > 0)
                 switch (args.Parameters[0])
                 {
                     case "allow":
                     {
+                        if (args.Parameters.Count == 1)
+                            break;
+
                         int id = 0;
 
                         if (int.TryParse(args.Parameters[1], out id))
@@ -290,6 +312,9 @@ namespace SorrowServer
                     }
                     case "deny":
                     {
+                        if (args.Parameters.Count == 1)
+                            break;
+                        
                         int id = 0;
 
                         if (int.TryParse(args.Parameters[1], out id))
