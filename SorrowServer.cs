@@ -67,7 +67,7 @@ namespace SorrowServer
         private void NpcKilled(NpcKilledEventArgs args)
         {
 
-            if (!Main.expertMode)
+            if (!Main.expertMode || Main.GameMode == 2)
                 return;
 
             int relic = 0;
@@ -229,11 +229,11 @@ namespace SorrowServer
                 Item.NewItem(args.npc.position + args.npc.Size / 2, args.npc.Size / 3, extra, 1);
         }
 
-        private async void GreetPlayer(GreetPlayerEventArgs args)
+        private void GreetPlayer(GreetPlayerEventArgs args)
         {
             var plr = TShock.Players[args.Who];
 
-            await Task.Delay(3100).ContinueWith(l =>
+            Task.Delay(3100).ContinueWith(l =>
             {
                 if (plr.ConnectionAlive)
                 {
