@@ -36,7 +36,8 @@ namespace SorrowServer
         {
             Commands.ChatCommands.Add(new Command("sorrow.npcblocker", NpcBlockerCommand, "npcblocker", "nb"));
 
-            GetDataHandlers.ChestOpen.Register(ChestOpen);
+            GetDataHandlers.ChestOpen.Register(ChestOpen, HandlerPriority.Lowest);
+            GetDataHandlers.KillMe.Register(KillMe);
             ServerApi.Hooks.NetGetData.Register(this, OnGetData, -10);
             Hooks.Npc.PreUpdate += NpcPreUpdate;
             ServerApi.Hooks.NpcKilled.Register(this, NpcKilled);
@@ -48,8 +49,9 @@ namespace SorrowServer
 
             PluginRandom = new Random();
         }
-    
-    
+        
+
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -418,6 +420,14 @@ namespace SorrowServer
 
                 }
             }
+        }
+        
+        //Fix for death desync.
+        private void KillMe(object sender, GetDataHandlers.KillMeEventArgs e)
+        {
+            e.Player.TPlayer.KillMe(e.PlayerDeathReason, e.Damage, e.Direction, e.Pvp);
+
+            e.Handled = true;
         }
 
 
