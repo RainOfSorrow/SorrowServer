@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 using OTAPI;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.Localization;
 using TerrariaApi.Server;
@@ -35,10 +36,11 @@ namespace SorrowServer
         public override void Initialize()
         {
             Commands.ChatCommands.Add(new Command("sorrow.npcblocker", NpcBlockerCommand, "npcblocker", "nb"));
+            Commands.ChatCommands.Add(new Command("sorrow.suicide", Suicide, "suicide"));
 
             GetDataHandlers.ChestOpen.Register(ChestOpen, HandlerPriority.Lowest);
-            GetDataHandlers.KillMe.Register(KillMe);
             ServerApi.Hooks.NetGetData.Register(this, OnGetData, -10);
+            ServerApi.Hooks.NetGetData.Register(this, DeathFix,  int.MaxValue);
             Hooks.Npc.PreUpdate += NpcPreUpdate;
             ServerApi.Hooks.NpcKilled.Register(this, NpcKilled);
             ServerApi.Hooks.NetGreetPlayer.Register(this, GreetPlayer, 1);
@@ -49,7 +51,12 @@ namespace SorrowServer
 
             PluginRandom = new Random();
         }
-        
+
+        private void Suicide(CommandArgs args)
+        {
+            args.Player.KillPlayer();
+            args.Player.SendSuccessMessage(string.Format("Successfully committed suicide."));
+        }
 
 
         protected override void Dispose(bool disposing)
@@ -422,13 +429,33 @@ namespace SorrowServer
             }
         }
         
-        //Fix for death desync.
-        private void KillMe(object sender, GetDataHandlers.KillMeEventArgs e)
+        private void DeathFix(GetDataEventArgs args)
         {
-            e.Player.TPlayer.KillMe(e.PlayerDeathReason, e.Damage, e.Direction, e.Pvp);
+            if (args.MsgID == PacketTypes.PlayerDeathV2)
+            {
+                using (BinaryReader reader =
+                    new BinaryReader(new MemoryStream(args.Msg.readBuffer, args.Index, args.Length)))
+                {
+                    reader.ReadByte();
+                    PlayerDeathReason playerDeathReason = PlayerDeathReason.FromReader(reader);
+                    var dmg = reader.ReadInt16();
+                    var direction = (byte)(reader.ReadByte() - 1);
+                    BitsByte bits = reader.ReadByte();
+                    bool pvp = bits[0];
 
-            e.Handled = true;
+                    
+                    TShock.Players[args.Msg.whoAmI].TPlayer.KillMe(playerDeathReason, dmg, direction, pvp);
+                    TShock.Players[args.Msg.whoAmI].Dead = true;
+                    TShock.Players[args.Msg.whoAmI].TPlayer.dead = true;
+                    
+                    NetMessage.SendPlayerDeath(args.Msg.whoAmI, playerDeathReason, dmg, direction, pvp);
+                    NetMessage.SendPlayerDeath(args.Msg.whoAmI, playerDeathReason, dmg, direction, pvp, args.Msg.whoAmI);
+
+                    args.Handled = true;
+                }
+            }
         }
+        
 
 
         //Chest protection on protected regions
